@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Community Ambassadors Map</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        #map {
+            width: 100%;
+            height: 100vh;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+            display: block;
+        }
+
+            #loading img {
+                width: 100px;
+                height: 100px;
+                animation: spin 1s linear infinite;
+            }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #form-container {
+            padding: 10px;
+            background: #f8f8f8;
+            text-align: center;
+        }
+
+        input, button {
+            padding: 8px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Loading screen -->
+    <div id="loading">
+        <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="Loading...">
+    </div>
+
+    <!-- Map container -->
+    <div id="map"></div>
+
+    <script>
+        var map, pokeBallIcon;
+
+        // Initialize the map and markers icon
+        function initializeMap() {
+            map = L.map('map').setView([54.0, -2.0], 6); // Set center to UK (latitude: 54.0, longitude: -2.0)
+
+            // OpenStreetMap (No API Key Needed)
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            pokeBallIcon = L.icon({
+                iconUrl: "ca1.png",
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+                popupAnchor: [0, -15]
+            });
+        }
+
+        // Fetch coordinates for a city using PHP API
+        async function getCoordinates(city) {
+            if (!city) {
+                console.error("City name is required");
+                return null;
+            }
+            try {
+                let response = await fetch(`get_coordinates.php?city=${encodeURIComponent(city)}`);
+                let data = await response.json();
+                return data.lat && data.lon ? [parseFloat(data.lat), parseFloat(data.lon)] : null;
+            } catch (error) {
+                console.error("Error fetching coordinates:", error);
+                return null;
+            }
+        }
+
+        // Fetch ambassador data from API
+        async function fetchAmbassadors() {
+            try {
+                let response = await fetch("get_ambassadors.php");
+                let data = await response.json();
+
+                if (data.error) {
+                    console.error("Error fetching data:", data.error);
+                    return [];
+                }
+                return data;
+            } catch (error) {
+                console.error("Error fetching ambassadors:", error);
+                return [];
+            }
+        }
+
+        // Display ambassadors on the map
+        async function displayAmbassadors() {
+            let ambassadors = await fetchAmbassadors();
+            let groupedAmbassadors = {};
+
+            // Group ambassadors by city
+            for (let ambassador of ambassadors) {
+                if (!groupedAmbassadors[ambassador.city]) {
+                    groupedAmbassadors[ambassador.city] = { names: [], coordinates: null };
+                }
+                groupedAmbassadors[ambassador.city].names.push(ambassador.name);
+            }
+
+            // Fetch coordinates for each city
+            for (let city in groupedAmbassadors) {
+                let coordinates = await getCoordinates(city);
+                if (coordinates) {
+                    groupedAmbassadors[city].coordinates = coordinates;
+                }
+            }
+
+            // Add markers for each city with coordinates
+            for (let city in groupedAmbassadors) {
+                if (groupedAmbassadors[city].coordinates) {
+                    let popupContent = `<b>${city}</b><br>`;
+
+                    groupedAmbassadors[city].names.forEach(name => {
+                        popupContent += `<span>${name}</span><br>`;
+                    });
+
+                    popupContent += `<br><img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${Math.floor(Math.random() * 151) + 1}.png" width="60">`;
+
+                    let marker = L.marker(groupedAmbassadors[city].coordinates, { icon: pokeBallIcon })
+                        .addTo(map)
+                        .bindPopup(popupContent);
+
+                    marker.on('click', function (e) {
+                        e.target.openPopup();
+                        map.panTo(e.latlng); // Ensure the map stays focused on the marker
+                    });
+                }
+            }
+
+            // Hide the loading screen once all data is processed
+            document.getElementById("loading").style.display = "none";
+        }
+
+        // Initialize the map and start displaying data
+        initializeMap();
+        displayAmbassadors();
+
+    </script>
+
+</body>
+</html>
