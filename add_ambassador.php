@@ -12,10 +12,10 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 // Database connection credentials
-$servername = "sql206.infinityfree.com:3306";
-$username = "if0_38269952";
-$password = "5KdwMdmbu9xzK";
-$dbname = "if0_38269952_ca"; // Replace with your database name
+$servername = $_ENV['DB_URL'];;
+$username = $_ENV['DB_USER'];
+$password = $_ENV['DB_PASS'];
+$dbname = $_ENV['DB_NAME'];
 
 // Create database connection
 $conn = new mysqli($servername, $username, $password, $dbname);

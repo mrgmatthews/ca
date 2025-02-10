@@ -5,11 +5,10 @@ error_reporting(E_ALL);
 
 
 // Example MySQL database connection (update with your own credentials)
-
-$host = "sql206.infinityfree.com:3306"; // Change if needed
-$user = "if0_38269952"; // Your MySQL username
-$password = "5KdwMdmbu9xzK"; // Your MySQL password
-$database = "if0_38269952_ca"; // Your database name
+$host = $_ENV['DB_URL'];;
+$user = $_ENV['DB_USER'];
+$password = $_ENV['DB_PASS'];
+$database = $_ENV['DB_NAME'];
 
 // Create connection
 $conn = new mysqli($host, $user, $password, $database);
