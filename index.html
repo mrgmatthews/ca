@@ -4,8 +4,8 @@
     <title>Community Ambassadors Map</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         body {
             margin: 0;
@@ -74,7 +74,7 @@
 
             // OpenStreetMap (No API Key Needed)
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors'
+                attribution: '? OpenStreetMap contributors'
             }).addTo(map);
 
             pokeBallIcon = L.icon({
@@ -122,21 +122,39 @@
         async function displayAmbassadors() {
             let ambassadors = await fetchAmbassadors();
             let groupedAmbassadors = {};
+            let adelli0nAmbassador = null; // To store Adelli0n separately
 
-            // Group ambassadors by city
+            // Group ambassadors by city, but handle Adelli0n separately
             for (let ambassador of ambassadors) {
-                if (!groupedAmbassadors[ambassador.city]) {
-                    groupedAmbassadors[ambassador.city] = { names: [], coordinates: null };
+                 console.log(`Processing ambassador: ${ambassador.name}, city: ${ambassador.city}`);
+        
+                if (ambassador.id === "12") {
+                    adelli0nAmbassador = ambassador; // Store Adelli0n separately
+                } else {
+                    if (!groupedAmbassadors[ambassador.city]) {
+                        groupedAmbassadors[ambassador.city] = { names: [], coordinates: null };
+                    }
+                    groupedAmbassadors[ambassador.city].names.push(ambassador.name);
                 }
-                groupedAmbassadors[ambassador.city].names.push(ambassador.name);
             }
 
-            // Fetch coordinates for each city
+             // Fetch coordinates for the cities and set for Adelli0n separately
             for (let city in groupedAmbassadors) {
                 let coordinates = await getCoordinates(city);
                 if (coordinates) {
                     groupedAmbassadors[city].coordinates = coordinates;
+                    console.log(`Coordinates for ${city}: ${coordinates}`);
+                } else {
+                    console.log(`No coordinates found for city: ${city}`);
+                    // Set a placeholder location for missing coordinates (London)
+                    groupedAmbassadors[city].coordinates = [51.5074, -0.1278]; // London coordinates as placeholder
                 }
+            }
+        
+            // Handle Adelli0n separately by generating random London coordinates
+            if (adelli0nAmbassador) {
+                const londonCoordinates = await getRandomLondonCoordinates();
+                adelli0nAmbassador.coordinates = londonCoordinates;
             }
 
             // Add markers for each city with coordinates
@@ -160,10 +178,103 @@
                     });
                 }
             }
+            
+            // Add Adelli0n's marker with random London coordinates, always showing "Manchester" in the popup
+            if (adelli0nAmbassador) {
+                let popupContent = `<b>London's Finest</b><br><span>${adelli0nAmbassador.name}</span><br>`;
+                popupContent += `<br><img src="https://pogoca.uk/map/finest.jpg" width="60">`;
+        
+                let marker = L.marker(adelli0nAmbassador.coordinates, { icon: pokeBallIcon })
+                    .addTo(map)
+                    .bindPopup(popupContent);
+        
+                marker.on('click', function (e) {
+                    e.target.openPopup();
+                    map.panTo(e.latlng); // Ensure the map stays focused on the marker
+                });
+            }
 
             // Hide the loading screen once all data is processed
             document.getElementById("loading").style.display = "none";
         }
+        
+        async function getRandomLondonCoordinates() {
+            const locations = [
+            { lat: 51.5074, lon: -0.2200 }, // Shepherd's Bush
+            { lat: 51.5773, lon: -0.1839 }, // Golders Green
+            { lat: 51.3760, lon: -0.0994 }  // Croydon
+        ];
+    
+        // Randomly decide whether to pick from the preferred locations or generate random coordinates
+        const isPreferredLocation = Math.random() < 0.5; // 75% chance to pick one of the preferred locations
+    
+        if (isPreferredLocation) {
+            // Pick a random location from the predefined ones
+            const randomIndex = Math.floor(Math.random() * locations.length);
+            return [locations[randomIndex].lat, locations[randomIndex].lon];
+        } else {
+            // Generate a random location across the UK, avoiding the Manchester area
+            return generateRandomUKLocation();
+        }
+    }
+    
+    // Function to generate random UK coordinates while avoiding the Manchester area
+    function generateRandomUKLocation() {
+        let lat, lon;
+         do {
+            // Random latitude and longitude within the UK
+            lat = 51 + Math.random() * 7;  // Latitude between 51 and 58 (rough UK bounds)
+            lon = -8 + Math.random() * 10; // Longitude between -8 and 2 (rough UK bounds)
+        } while (isNearManchester(lat, lon) || isInSea(lat, lon)); // Keep generating until it's not near Manchester and not in the sea
+        
+        return [lat, lon];
+    }
+    
+    // Function to check if coordinates are near Manchester
+    function isNearManchester(lat, lon) {
+        const manchesterLat = 53.4808;
+        const manchesterLon = -2.2426;
+        const distance = getDistance(lat, lon, manchesterLat, manchesterLon);
+    
+        return distance < 50; // Avoid locations within 50 km of Manchester
+    }
+    
+    // Function to calculate the distance between two coordinates in kilometers
+    function getDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371; // Radius of the Earth in km
+        const dLat = degreesToRadians(lat2 - lat1);
+        const dLon = degreesToRadians(lon2 - lon1);
+        const a =
+            Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(degreesToRadians(lat1)) * Math.cos(degreesToRadians(lat2)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c; // Distance in km
+    }
+    
+    // Function to convert degrees to radians
+    function degreesToRadians(degrees) {
+        return degrees * (Math.PI / 180);
+    }
+    
+    function isInSea(lat, lon) {
+        // Define the UK mainland's rough geographical boundaries
+        const ukLatMin = 49.9;  // Lower bound for latitude (south of England)
+        const ukLatMax = 58.6;  // Upper bound for latitude (northern Scotland)
+        const ukLonMin = -8.7;  // Left bound for longitude (west coast)
+        const ukLonMax = 1.8;   // Right bound for longitude (east coast)
+    
+        // Latitude and longitude should be within the UK mainland
+        if (lat < ukLatMin || lat > ukLatMax || lon < ukLonMin || lon > ukLonMax) {
+            return true;  // Coordinates are outside the UK mainland, so likely in the sea
+        }
+    
+        // Further refine if necessary by excluding specific sea areas, for example, small islands or specific waters
+        // This could be done by cross-checking with more data (e.g., coastline or island databases).
+    
+        return false;  // Coordinates seem to be within UK mainland, not in the sea
+    }
+
 
         // Initialize the map and start displaying data
         initializeMap();
