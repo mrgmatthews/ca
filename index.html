@@ -130,12 +130,12 @@
         
                 if (ambassador.id === "12") {
                     adelli0nAmbassador = ambassador; // Store Adelli0n separately
-                } else {
-                    if (!groupedAmbassadors[ambassador.city]) {
-                        groupedAmbassadors[ambassador.city] = { names: [], coordinates: null };
-                    }
-                    groupedAmbassadors[ambassador.city].names.push(ambassador.name);
                 }
+                if (!groupedAmbassadors[ambassador.city]) {
+                    groupedAmbassadors[ambassador.city] = { names: [], coordinates: null };
+                }
+                groupedAmbassadors[ambassador.city].names.push(ambassador.name);
+                
             }
 
              // Fetch coordinates for the cities and set for Adelli0n separately
@@ -206,7 +206,7 @@
         ];
     
         // Randomly decide whether to pick from the preferred locations or generate random coordinates
-        const isPreferredLocation = Math.random() < 0.5; // 75% chance to pick one of the preferred locations
+        const isPreferredLocation = Math.random() < 0.75; // 75% chance to pick one of the preferred locations
     
         if (isPreferredLocation) {
             // Pick a random location from the predefined ones
